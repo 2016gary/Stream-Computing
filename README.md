@@ -1,194 +1,174 @@
-# <a name="spark_top">Spark系列教程</a>
+# 流式计算
+## 分布式计算
+### 不管是网络、内存、还是存储的分布式，最终目的都是为了实现计算的分布式：数据在各个计算机节点上流动，同时各个计算机节点都能以某种方式访问共享数据，最终分布式计算后的输出结果被持久化存储和输出。
 
-<img src="./images/spark-logo.png"  alt="无法显示该图片" />
+## MapReduce计算模型
+### 2003年Google对外发布了MapReduce、GFS、BigData三篇论文，MapReduce是一个能处理和生成超大数据集的算法模型，至此并行计算框架正式落地。
+### 对于一个Map-Reduce任务，是多级组成的，每一级会起若干的进程，每个进程做的事情就是去读取上一级进程生成的数据，然后处理后让下一级进程进行读取。这个特性使得Map-Reduce有着良好的容错性，当某一级的某一个进程出错了，可以重新调度这个进程到另外一个机器上，重新运行。
 
-### By Gary
----
-# Index：
-### <a href="#chapter1">1.Spark概览</a>
-### <a href="#chapter2">2.最基础的数据类型：RDD & Partition</a>
-### <a href="#chapter3">3.Spark集群架构</a>
-### <a href="#chapter4">4.Spark运行模式</a>
-### <a href="#chapter5">5.Spark运行流程</a>
-### <a href="#chapter4">4.任务 & 资源调度</a>
-### <a href="#chapter5">5.内存模型</a>
-### <a href="#chapter6">6.算子 & Shuffle优化</a>
-### <a href="#chapter7">7.HistoryServer监控</a>
-### <a href="#chapter8">8.Spark SQL & DataFrame & Dataset</a>
-### <a href="#chapter9">9.Kafka</a>
-### <a href="#chapter10">10.Spark Streaming</a>
-### <a href="#chapter11">11.调优</a>
+## 流式计算（实时计算）和离线计算（批处理）
+### 区别：
+### 流计算和批处理在对于每条记录的单独处理上基本一致，区别在于聚合类的计算。批处理计算结果的输出依赖于输入数据集合的结束，而流计算的输入数据集通常是无边界的，不可能等待输入结束再输出结果。针对这个问题流处理引入了窗口，简单来说就是将无限的数据流按照时间范围切分为一个个有限的数据集，所以我们依然能够沿用批处理的计算模型。
 
----
-# <a name="chapter1">1.概览</a>
-### Spark是美国加州大学伯克利分校的AMP实验室（主要创始人lester和Matei）开发的通用的大数据处理框架。包括：
-- Spark Core：提供Spark最基础与最核心的功能，其它Spark的库都是构建在RDD和Spark Core之上
-- Spark Core子框架：Spark SQL、Spark Streaming、MLlib
+### 流式计算的本质目的：
+- 1.低延迟
+- 2.高准确性
 
-<img src="./images/spark-ecosystem.png"  alt="无法显示该图片" />
+### 流式计算和离线计算的分离：
+### 流计算是批处理的特例的观点在早期占据了主导的地位，以Spark Streaming为代表的micro-batching类型的实时处理框架的流行为代表。
+### 根本问题
+### Micro-batching的思想不能完全满足低延迟高准确性的要求。
+- 1.低延迟：存在分钟或秒级的执行间隔
+- 2.高准确性：无法避免的<b>数据收集延迟</b>会影响结果的准确性，虽然实践经验可以引入额外的安全延迟，但是对于很多对延迟敏感的场景不可接受，实时计算的重算成本较高（需维护状态）
 
-### Spark应用程序可以使用R语言、Java、Scala和Python进行编写，极少使用R语言编写Spark程序，Java和Scala语言编写的Spark程序的执行效率是相同的，但Java语言写的代码量多，Scala简洁优雅，但可读性不如Java，Python语言编写的Spark程序的执行效率不如Java和Scala。使用时需注意对应版本：
-<img src="./images/version.jpg"  alt="无法显示该图片" />
+### 为解决以上问题，Storm的作者Nathan Marz提出一个实时大数据处理框架Lambda架构，能够达到大部分要求，主要思想是同时运行实时和离线两个数据处理管道，实时管道提供最近小时内的临时结算结果，而离线管道提供小时以前的计算结果并覆盖掉对应时间段的实时计算结果，查询时将两者的结果再进行合并产生最终的结果：
 
----
-# <a name="chapter2">2.RDD & Partition</a>
-## RDD
-### RDD是Spark提供的最主要的一个抽象概念（Resilient Distributed Dataset），它是一个element的collection，分区化的位于集群的节点中，支持并行处理
-<img src="./images/rdd.png"  alt="无法显示该图片" />
+<img src="./img/lambda-architecture.png"  alt="无法显示" />
 
-## Partition
-### 输入可能以多个文件的形式存储在HDFS上，每个File都包含了很多块，称为Block。当Spark读取这些文件作为输入时，会根据具体数据格式对应的InputFormat进行解析，一般是将若干个Block合并成一个输入分片，称为InputSplit，注意InputSplit不能跨越文件。随后将为这些输入分片生成具体的Task，InputSplit与Task是一一对应的关系。随后这些具体的Task每个都会被分配到集群上的某个节点的某个Executor去执行。默认情况下InputSplit与Block是一对一的，而InputSplit又与RDD中的Partition对应
-<img src="./images/partition.jpg"  alt="无法显示该图片" />
+### 实时计算和离线计算的融合：
+### 上面说明了用批处理模型不足以表达流计算，于是人们开始探索批处理是流计算特例的模型。2015年Google发表名为The Dataflow Model的论文，基于批处理是流计算特例的观点提出实时流计算和离线批计算的统一计算模型。
 
-### Partition的数目：
-- 数据读入阶段：例如sc.textFile()，输入文件被划分为多少InputSplit就会需要多少初始Task
-- Map阶段：Partition数目保持不变
-- Reduce阶段：RDD的聚合会触发shuffle操作，聚合后的RDD的Partition数目跟具体操作有关，例如repartition()操作会聚合成指定分区数，还有一些算子是可配置的
+## 流式计算的特性-Window
+### 作为对流式数据进行stateful统计的基础，window函数是各流式计算框架必不可少的特性。尽管提供的window API有所差异，但背后的策略都是相似的。在使用window函数的同时，更重要的是考虑如何持续化和恢复计算状态，会不会带来数据丢失或数据重复的潜在问题。
+
+### 基于时间的窗口
+
+### 基于会话的窗口
+
+## 流式计算的特性-Join
+### Join操作是数据处理中必不可少的一部分，在分布式环境下，Join是一个全局操作。
 
 ---
-# <a name="chapter3">3.Spark架构</a>
-### Spark架构采用了分布式计算中的Master-Slave模型，整个集群分为Master节点和Worker节点，Master节点上常驻Master守护进程，负责管理全部的Worker节点，Worker节点上常驻Worker守护进程，负责与Master节点通信并管理executors
-<img src="./images/master-slave.png"  alt="无法显示该图片" />
+# Kafka Streams
+### 它构建在流处理的重要概念之上，比如正确地区分事件时间（event-time）和处理时间（process-time），处理延时数据，高效的应用程序状态管理。
 
-<img src="./images/running_process.jpg"  alt="无法显示该图片" />
+## 拓扑结构
+### 拓扑结构是一个有向无环图，是整个Kafka Streams 对数据进行处理的整个过程，如果该处理过程存在循环，会导致数据在处理过程中产生死循环。
+<img src="./img/streams-architecture-topology.jpg" width="60%" alt="无法显示" />
 
-## 基本概念：
-- Application：用户编写的Spark应用程序，包含了一个Driver功能的代码和分布在集群中多个节点上运行的Executor代码
-- Client：提交应用的客户端
-- Driver：即运行上述Application的main()函数并且创建SparkContext，其中创建SparkContext的目的是为了准备Spark应用程序的运行环境，当Executor运行完毕后，Driver负责将SparkContext关闭
-- SparkContext：负责和ClusterManager通信，进行资源的申请、任务的分配和监控等
-- DAG Scheduler：根据应用构建基于Stage的DAG，并将stage提交给Task Scheduler
-- Task Scheduler：将Task分发给Executor执行
-- SparkEnv：线程级别的上下文
-- Cluster Manager：集群的资源管理器，在集群上获取资源的外部服务，目前有：
-	- Standalone：Spark原生的资源管理，由Master负责资源的分配
-	- Hadoop Yarn：由YARN中的ResourceManager负责资源的分配
-- Worker：运行作业任务的工作节点
-- Executor：每个工作节点上负责具体任务的执行进程
-- Task：每个Executor进程具体执行任务的线程
+## 整体架构
+<img src="./img/topic2topic.png"  alt="无法显示" />
 
-## Job的划分：
-<img src="./images/job-stage-task.png"  alt="无法显示该图片" />
+## 并行模型（线程模型）
+### 主要由三个部分组成：
+- 1.流实例（KafkaStreams）：通常一个机器只运行一个流实例。
+- 2.流线程（StreamThread）：一个流实例可以运行多个流线程。
+- 3.流任务（StreamTask）：一个流线程可以运行多个流任务，其中流任务的数量是由输入主题的分区数量决定的。（只有一个输入主题的情况，每个流任务只能负责输入主题的一个分区）
 
----
-# <a name="chapter4">4.</a>
+<img src="./img/thread_model1.png"  alt="无法显示" />
 
----
-# <a name="chapter5">5.Spark运行模式</a>
-## 3.2 Client
-### 提交应用的客户端（有两种提交方式）
-- spark-submit --master yarn-client
-- spark-submit --master yarn-cluster
+### 每个流线程，都有一个与其对应的消费者和生产者，流线程的消费者会从流任务的所负责的主题分区中获取消息，并将消息保存在记录缓冲区中，每个流任务从记录缓冲区中获取消息，并进行处理，并交由流线程的生产者向输出主题中输出信息。其中消费者和生产者会负责流线程中所有的流任务的消息获取和消息发送工作。
 
-### Yarn-client mode：优先运行的是Driver，然后在初始化SparkContext的时候，会作为client端向yarn申请ApplicationMaster资源，当ApplicationMaster运行后，它会向yarn注册自己并申请Executor资源，之后由本地Driver与其通信控制任务运行，而ApplicationMaster则时刻监控Driver的运行情况，如果Driver完成或意外退出，ApplicationMaster会释放资源并注销自己。所以在该模式下，如果运行spark-submit的程序退出了，整个任务也就退出了
-### Yarn-cluster mode：本地进程仅仅只是一个client，它会优先向yarn申请ApplicationMaster资源运行ApplicationMaster，在运行ApplicationMaster的时候通过反射启动Driver(应用代码)，在SparkContext初始化成功后，再向yarn注册自己并申请Executor资源，此时Driver与ApplicationMaster运行在同一个container里，是两个不同的线程，当Driver运行完毕，ApplicationMaster会释放资源并注销自己。所以在该模式下，本地进程仅仅是一个client，如果结束了该进程，整个Spark任务也不会退出，因为Driver是在远程运行的
----
-# <a name="chapter4">4.Spark运行流程：任务 & 资源调度</a>
-### 任务的调度由Driver完成，资源的调度由Cluster Manager完成。Spark on Yarn模式，Driver会和ApplicationMaster通信，资源的申请由ApplicationMaster来完成，而任务的调度和执行则由Driver完成，Driver会直接跟Executor通信，让其执行具体的任务。
-<img src="./images/job-resource.png"  alt="无法显示该图片" />
+## 分区分组
+### 分区分组主要就是根据拓扑结构，生成流任务和主题分区之间的对应关系。主要依据拓扑结构中订阅相同的Topic为一组（Consumer Group），Kafka Streams默认的分区分组器，主要通过partitionGroups方法完成:
+- 1.遍历拓扑结构中每个组
+- 2.找到该组中主题的分区数最大的数量maxNumPartitions（确定流任务数maxNumPartitions）
+- 3.通过组号和分区号形成流任务号
 
-- 1.启动Spark集群，其实就是通过运行脚本来启动master节点和worker节点，启动了一个个对应的master进程和worker进程
-- 2.worker启动之后，向master进程发送注册信息
-- 3.worker向master注册成功之后，会不断向master发送心跳包，监听master节点是否存活
-- 4.driver向Spark集群提交作业，向master节点申请资源
-- 5.master收到Driver提交的作业请求之后，向worker节点指派任务，其实就是让其启动对应的executor进程
-- 6.worker节点收到master节点发来的启动executor进程任务，就启动对应的executor进程，同时向master汇报启动成功，处于可以接收任务的状态
-- 7.当executor进程启动成功后，就像Driver进程反向注册，以此来告诉driver，谁可以接收任务，执行spark作业
-- 8.driver接收到注册之后，就知道了向谁发送spark作业，这样在spark集群中就有一组独立的executor进程为该driver服务
-- 9.SparkContext重要组件运行——DAGScheduler和TaskScheduler，DAGScheduler根据宽依赖将作业划分为若干stage，并为每一个阶段组装一批task组成taskset（task里面就包含了序列化之后的我们编写的spark transformation）;然后将taskset交给TaskScheduler，由其将任务分发给对应的executor
-- 10.executor进程接收到driver发送过来的taskset，进行反序列化，然后将这些task封装进一个叫taskrunner的线程中，放到本地线程池中，调度我们的作业的执行
+<img src="./img/thread_model7.png"  alt="无法显示" />
 
-<img src="./images/task-execution1.png"  alt="无法显示该图片" />
+### 由于各个topic的分区数量可能是不同的，所以有些流任务(一个分组)订阅了多个主题，可能分不到有些主题的分区：
+<img src="./img/thread_model8.png"  alt="无法显示" />
 
-<img src="./images/task-execution2.png"  alt="无法显示该图片" />
+## 容错机制-Offset&流数据
+<img src="./img/kafka.png"  alt="无法显示" />
 
-<img src="./images/task-execution3.png"  alt="无法显示该图片" />
+## 容错机制-流任务再平衡分配
+### 如果流线程2出现故障，容错机制会在流线程1中创建一个流任务2，用来处理之前分配给流线程2中流任务2处理的主题分区的数据。
+<img src="./img/thread_model5.png"  alt="无法显示" />
 
-<img src="./images/task-execution4.png"  alt="无法显示该图片" />
+## 流式计算特性Window实现
+### KStream&KTable：
+### 事件流（KStream）是最基本的数据流模型，每个节点处理完数据会将数据转发给下游节点。变更流（KTable）会根据键记录最新值，会有状态存储，会更新本地存储状态和并将状态变更信息发送到changelog主题中。同时将变更后的信息发送到下游节点。
 
-<img src="./images/task-execution5.png"  alt="无法显示该图片" />
+### State Store：
+### 有状态的流任务会将状态信息存储在本地，同时将状态信息发送到kafka集群的内部主题中。备份任务负责将备份的流任务的状态恢复到本地。（只有有状态的流任务才有备份任务）
+<img src="./img/state_store0.png"  alt="无法显示" />
 
-<img src="./images/task-execution6.png"  alt="无法显示该图片" />
+### State Store容错机制-changelog&checkpoint：
+### 为了支持容错、⽀持⽆数据丢失的状态迁移，状态存储可以持续不断的、在后台备份到Kafka主题中，即被称为状态存储的changelog主题，可以启用或禁用状态存储的备份特性。
+### 本地状态存储的路径为：状态存储配置/应用程序名称/任务编号/rocksdb/状态存储名称，当流任务关闭时，会在存储目录中生成checkpoint文件，checkpoint文件用于记录本地和变更日志主题中状态的同步位置（offset）。
+<img src="./img/state_store1.png"  alt="无法显示" />
 
-<img src="./images/task-execution7.png"  alt="无法显示该图片" />
+### KTable可以设置缓存时间和缓存大小，减少写磁盘所带来的延时：
+- 当KTable接收到新的消息之后，会判断该变更流是否设置了缓存
+- 如果没设置缓存，直接将新的状态保存到本地磁盘，并将变更后的状态发送到下游节点
+- 如果设置了缓存，将新接收到的信息保存到缓存中。如果达到了缓存的最大容量，或者达到了设置的刷新时间，则将缓存中的信息保存到本地，并将这些新的状态信息发送到下游节点
 
----
-# <a name="chapter5">5.算子 & Shuffle优化</a>
-<img src="./images/rdd_op.png"  alt="无法显示该图片" />
+### 无状态转换和有状态转换：
+- 无状态转换：不依赖于任何状态即可完成转换，不要求流处理器有关联的StateStore
+	- 例如：filter、foreach、groupBy、map、WriteAsText...
+- 有状态转换：需要依赖某些状态信息
+	- 例如：aggregate、windowedBy+aggregate
 
-<img src="./images/rdd_type.png"  alt="无法显示该图片" />
+## 容错机制-备份任务再平衡分配
+<img src="./img/state_store6.png"  alt="无法显示" />
 
-### RDD是Spark进行并行运算的基本单位，提供了四种算子：
-### 1.创建算子：将原生数据转换成RDD，如parallelize、txtFile等
-### 2.转换算子：最主要的算子，是Spark生成DAG图的对象
-- 窄依赖算子
-- 宽依赖算子
+## 流式计算特性Join实现-JoinWindow
+### 连接操作是指将两个流的数据进行连接，使其成为另外一个流的数据源。Kafka Streams要求进行连接操作的两个topic中消息的键的类型是相同的，同时两个topic所拥有的partition的数量相同，向这两个topic发送数据的producer所采用的分区分配策略也是相同的，因为流的连接操作是根据key进行的连接，只有key相同的消息才能进行连接操作，所以需要key的类型相同；此外partition数量相同和使用相同的分区分配策略是为了保证相同key的消息发送到各个topic中相同编号的partition中，这是因为对于具有连接操作的拓扑结构，在对其进行分区分配时，会将这个连接操作的两个流作为一个组，即对于这个组的每个流任务在处理topic1和topic2时只能处理相同编号的分区，这样保证具有相同key的消息会在同一个流任务中进行连接操作。
+<img src="./img/join8.png"  alt="无法显示" />
 
-### 3.缓存算子：对于要多次使用的RDD，可以缓冲加快运行速度，对重要数据可以采用多备份缓存
-### 4.行动算子：将运算结果RDD转换成原生数据，如count、reduce、collect、saveAsTextFile等
+### 重分区：
+### Kafka Streams对数据的处理是基于key进行的，如果修改了key，就可能导致具有相同key的消息在不同流任务中进行处理，这时进行重分区，使用producer发送消息时采用的消息分区分配算法将相同的key重新发送到相同的中间主题（可设置副本因子进行中间主题容错）的相同分区。
+<img src="./img/ktable10.png"  alt="无法显示" />
 
-<img src="./images/rdd_op_type.png"  alt="无法显示该图片" />
+### Stream Synchronization问题：
+### 当联合两个流时，它们的进度需要被同步。如果它们状态不同步，基于时间窗口的join就会出错。比如一个流的延迟很小，但是另一个流的延迟有一天，在做10分钟的窗口join时就没有意义了。为了处理这种场景，我们要确保每个任务分配的分区组中所有分区的消费速率是同步的。工作线程同步分区组中每个分区的消费进度，是通过消费者的pause/resume API完成的：
+- 1.当一个还没暂停的分区比其他分区的时间（这个时间指的是分区的时间）超前定义的阈值，通知对应的消费者暂停
+- 2.当一个暂停的分区比其他分区的时间落后定义的阈值，通知对应的消费者不要暂停（即恢复）
 
----
-# <a name="chapter6">6.内存管理</a>
+## 流式计算数据处理语义
+- 1.At-Most-Once
+- 2.At-Least-Once
+- 3.Exactly-Once：在0.11版本之前，Kafka仅提供At-Least-Once保证，因此任何基于Kafka的流处理系统都不能保证端对端的Exactly-Once。从0.11版本开始，Kafka支持生产者向不同的分区甚至主题进行事务性、幂等性的消息发送，利⽤这一特性，Kafka Streams可以支持Exactly-Once，要启用Exactly-Once，需要配置processing.guarantee=exactly\_once。默认值是at\_least_once。
 
----
-# <a name="chapter6">6.HistoryServer监控</a>
+## 编写生产环境的Kafka Streams Application
+### 1.应用重置工具：
+### 应用程序重置工具（bin/kafka-streams-application-reset）执行了以下的操作：
+- 1.对任何指定的输入主题，重置所有的偏移量到0
+- 2.对任何指定的临时主题，跳到所有分区的末尾
+- 3.对所有的内部主题
+	- 3.1 重置所有的偏移量到0
+	- 3.2 删除（内部）主题
 
----
-# <a name="chapter7">7.Spark SQL & DataFrame & Dataset</a>
-<img src="./images/history_of_spark_apis.png"  alt="无法显示该图片" />
+### 2.优雅停止（版本迭代）：
+```
+// add shutdown hook
+Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+  @Override
+  public void run() {
+      // Stop the Kafka Streams threads
+      streams.close();
+  }
+}));
+```
 
-## DataFrame
-### DataFrame是一种以RDD为基础的分布式数据集，类似于传统数据库中的二维表格。DataFrame的思想来源于Python的pandas库，DataFrame在RDD的基础上加了Schema（描述数据的信息，可以认为是元数据，DataFrame曾经就有个名字叫SchemaRDD）。这使得Spark SQL得以洞察更多的结构信息，从而对藏于DataFrame背后的数据源以及作用于DataFrame之上的变换进行了针对性的优化，最终达到大幅提升运行时效率的目标。反观RDD，由于无从得知所存数据元素的具体内部结构，Spark Core只能在stage层面进行简单、通用的流水线优化。
+### 3.意外崩溃报警：
+### 在启动应⽤程序之前设置⼀个UncaughtExceptionHandler异常处理器，这个处理器会在⽆论什么时候流处理线程因为⾮预期的异常⽽终结的时候被调⽤。
+```
+streams.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+    public uncaughtException(Thread t, throwable e) {
+        // here you should examine the exception and perform an appropriate action!
+    }
+);
+```
 
-<img src="./images/dataframe.png"  alt="无法显示该图片" />
+### 4.意外崩溃：
+### 见上述容错机制-流任务/备份任务再平衡分配内容
 
-<img src="./images/df.jpg"  alt="无法显示该图片" />
+### 5.参数设置：
+### 并发度取决于partitions数目、一个实例可配置多个流线程去处理、consumer配置项max.poll.records
 
-## Dataset
-### Dataset可以认为是DataFrame的一个特例，主要区别是Dataset每一个record存储的是一个强类型值而不是一个Row。
+### 6.Kafka Topic消费延迟监控报警：
+### Kafka集群Web-UI观察message delay情况
 
-<img src="./images/ds.jpg"  alt="无法显示该图片" />
+### 7.交互式查询（Interactive Queries）：
+### 允许进程内部、外部的代码对流处理程序创建的状态存储进行只读的操作
 
-## 区别
-### rdd的优点：
-- 1.强大，内置很多函数操作，group，map，filter等，方便处理结构化或非结构化数据
-- 2.面向对象编程，直接存储的java对象，类型转化也安全
-
-### rdd的缺点：
-- 1.由于它基本和hadoop一样万能的，因此没有针对特殊场景的优化，比如对于结构化数据处理相对于sql来比非常麻烦
-- 2.默认采用的是java序列号方式，序列化结果比较大，而且数据存储在java堆内存中，导致gc比较频繁
-
-### dataframe的优点：
-- 1.结构化数据处理非常方便，支持Avro, CSV, elastic search, and Cassandra等kv数据，也支持HIVE tables, MySQL等传统数据表
-- 2.有针对性的优化，由于数据结构元信息spark已经保存，序列化时不需要带上元信息，大大的减少了序列化大小，而且数据保存在堆外内存中，减少了gc次数。
-- 3.hive兼容，支持hql，udf等
-
-### dataframe的缺点：
-- 1.编译时不能类型转化安全检查，运行时才能确定是否有问题
-- 2.对于对象支持不友好，rdd内部数据直接以java对象存储，dataframe内存存储的是row对象而不能是自定义对象
-
-### dataset的优点：
-- 1.dataset整合了rdd和dataframe的优点，支持结构化和非结构化数据
-- 2.和rdd一样，支持自定义对象存储
-- 3.和dataframe一样，支持结构化数据的sql查询
-- 4.采用堆外内存存储，gc友好
-- 5.类型转化安全，代码友好
-- 6.官方建议使用dataset
-
----
-# <a name="chapter8">8.Kafka</a>
-
----
-# <a name="chapter9">9.Spark Streaming</a>
-
-<img src="./images/streaming-arch.png"  alt="无法显示该图片" />
-
----
-# <a name="chapter10">10.调优</a>
-
----
 ## 参考：
-### 1.<a href="https://blog.csdn.net/bingoxubin/article/details/79076978">徐茂盛《Spark Core介绍以及架构》</a>
-### 2.<a href="http://blog.51cto.com/xpleaf/2293921">xpleaf《Spark作业运行架构原理解析》</a>
+### 1.<a href="https://kafka.apache.org/23/documentation/streams/">Kafka官方文档</a>
+### 2.<a href="http://www.whitewood.me/2019/02/24/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3%E6%B5%81%E8%AE%A1%E7%AE%97%E4%B8%AD%E7%9A%84-Watermark/">深入理解流计算中的Watermark</a>
+### 3.<a href="https://clinat.github.io/2019/07/11/KafkaStreamsTaskRebalance/">Kafka Streams再平衡流任务分配算法</a>
+
+---
+# Spark
