@@ -168,8 +168,8 @@ streams.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
 ### 4.意外崩溃：
 ### 见上述容错机制-流任务/备份任务再平衡分配内容
 
-### 5.参数设置：
-### 并发度取决于partitions数目、一个实例可配置多个流线程去处理、consumer配置项max.poll.records
+### 5.参数设置（并发度）：
+### Kafka Streams最大的并发度取决于partitions数目，因为一旦最大的partitions数目确定了就确定了流任务数，每个Kafka Streams实例配置的流线程数，可理解为是集群公用的线程资源，当线程数设置的足够大（每个流任务都最多只处理一个流任务）那就能达到最大的并发度，但是流线程数设置不够（一个流线程可能同时处理多个流任务）则不能达到最大的并发度
 
 ### 6.Kafka Topic消费延迟监控报警：
 ### Kafka集群Web-UI观察message delay情况
