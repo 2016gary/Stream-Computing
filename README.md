@@ -1,5 +1,5 @@
 # <a name="streaming_top">流式计算入门教程</a>
-<img src="./img/streaming_logo.png" width="100%" alt="无法显示该图片" />
+<img src="./img/streaming_logo.png" alt="无法显示该图片" />
 
 ### By Gary
 
