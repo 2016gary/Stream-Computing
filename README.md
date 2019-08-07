@@ -1,4 +1,5 @@
 # <a name="streaming_top">流式计算入门教程</a>
+<img src="./img/streaming_logo.png"  alt="无法显示该图片" />
 
 ### By Gary
 
@@ -184,3 +185,6 @@ streams.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
 ---
 # <a name="chapter3">3.Spark Streaming</a>
 ### <a href="">更新中</a>
+
+---
+# <a href="#streaming_top">Jump to the top</a>
