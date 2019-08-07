@@ -1,4 +1,15 @@
-# 流式计算
+# <a name="streaming_top">流式计算入门教程</a>
+
+### By Gary
+
+---
+# Index：
+### <a href="#chapter1">1.流式计算</a>
+### <a href="#chapter2">2.Kafka Streams</a>
+### <a href="#chapter3">3.Spark Streaming</a>
+
+---
+# <a name="chapter1">1.流式计算</a>
 ## 分布式计算
 ### 不管是网络、内存、还是存储的分布式，最终目的都是为了实现计算的分布式：数据在各个计算机节点上流动，同时各个计算机节点都能以某种方式访问共享数据，最终分布式计算后的输出结果被持久化存储和输出。
 
@@ -39,7 +50,7 @@
 ### Join操作是数据处理中必不可少的一部分，在分布式环境下，Join是一个全局操作。
 
 ---
-# Kafka Streams
+# <a name="chapter2">2.Kafka Streams</a>
 ### 它构建在流处理的重要概念之上，比如正确地区分事件时间（event-time）和处理时间（process-time），处理延时数据，高效的应用程序状态管理。
 
 ## 拓扑结构
@@ -171,4 +182,5 @@ streams.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
 ### 3.<a href="https://clinat.github.io/2019/07/11/KafkaStreamsTaskRebalance/">Kafka Streams再平衡流任务分配算法</a>
 
 ---
-# Spark
+# <a name="chapter3">3.Spark Streaming</a>
+### <a href="">更新中</a>
