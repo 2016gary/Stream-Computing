@@ -5,12 +5,12 @@
 
 ---
 # Index：
-### <a href="#chapter1">1.流式计算</a>
+### <a href="#chapter1">1.分布式计算&流式计算</a>
 ### <a href="#chapter2">2.Kafka Streams</a>
 ### <a href="#chapter3">3.Spark Streaming</a>
 
 ---
-# <a name="chapter1">1.流式计算</a>
+# <a name="chapter1">1.分布式计算&流式计算</a>
 ## 分布式计算
 ### 不管是网络、内存、还是存储的分布式，最终目的都是为了实现计算的分布式：数据在各个计算机节点上流动，同时各个计算机节点都能以某种方式访问共享数据，最终分布式计算后的输出结果被持久化存储和输出。
 
