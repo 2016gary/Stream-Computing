@@ -1,4 +1,4 @@
-# <a name="streaming_top">流式计算入门教程</a>
+# <a name="streaming_top">Kafka Streams流式计算入门教程</a>
 <img src="./img/stream.png" alt="无法显示该图片" />
 
 ### By Gary
@@ -7,7 +7,6 @@
 # Index：
 ### <a href="#chapter1">1.分布式计算&流式计算</a>
 ### <a href="#chapter2">2.Kafka Streams</a>
-### <a href="#chapter3">3.Spark Streaming</a>
 
 ---
 # <a name="chapter1">1.分布式计算&流式计算</a>
@@ -186,10 +185,6 @@ streams.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
 ### 1.<a href="https://kafka.apache.org/23/documentation/streams/">Kafka官方文档</a>
 ### 2.<a href="http://www.whitewood.me/2019/02/24/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3%E6%B5%81%E8%AE%A1%E7%AE%97%E4%B8%AD%E7%9A%84-Watermark/">深入理解流计算中的Watermark</a>
 ### 3.<a href="https://clinat.github.io/2019/07/11/KafkaStreamsTaskRebalance/">Kafka Streams再平衡流任务分配算法</a>
-
----
-# <a name="chapter3">3.Spark Streaming</a>
-### <a href="https://github.com/2016gary/Streaming/tree/master/Spark">Spark部分更新中</a>
 
 ---
 # <a href="#streaming_top">Jump to the top</a>
